@@ -1,0 +1,17 @@
+# Dataset (IMPORTANT)
+combined-unknown-pneumonia-and-tuberculosis/
+
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Outputs
+*.png
+*.jpg
+*.jpeg
+
+# Zip files
+*.zip
