@@ -16,9 +16,7 @@ import tensorflow as tf
 # ============================================================
 # Base directory of dataset
 base_dir = Path(
-    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/"
-    "python_ptojects/playing with deep learning and new new datasets /"
-    "combined-unknown-pneumonia-and-tuberculosis"
+    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/python_ptojects/playing with deep learning and new datasets /combined-unknown-pneumonia-and-tuberculosis"
 )
 
 # Folder structure

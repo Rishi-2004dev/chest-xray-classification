@@ -1,3 +1,5 @@
+#this is the main model that i am going to use as this gives more accuracy than densnet121. 
+#this gives 90% accuracy, but in futher phases of this project and upgradation of this project we will try some different model to get the best highest accuracy than this basic 3 layer cnn network.
 # ============================================================
 # IMPORTS
 # ============================================================
@@ -18,9 +20,7 @@ from tensorflow.keras import layers
 # ============================================================
 # Base directory of dataset
 base_dir = Path(
-    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/"
-    "python_ptojects/playing with deep learning and new new datasets /"
-    "combined-unknown-pneumonia-and-tuberculosis"
+    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/python_ptojects/playing with deep learning and new datasets /combined-unknown-pneumonia-and-tuberculosis"
 )
 
 # Folder structure
@@ -278,7 +278,7 @@ class_weights = {
 history = model.fit(
     train_dataset,
     validation_data=val_dataset,
-    epochs=20, 
+    epochs=15, 
     callbacks=[early_stopping],
     class_weight=class_weights
 )
@@ -290,3 +290,10 @@ print("\n--- Evaluating Baseline on Test Data ---")
 test_loss, test_acc = model.evaluate(test_dataset)
 print(f"Final Test Accuracy: {test_acc:.4f}")
 print(f"Final Test Loss: {test_loss:.4f}")
+
+# ============================================================
+# STEP 6: SAVE MODEL FOR PRODUCTION DEPLOYMENT
+# ============================================================
+print("\n--- Saving Model for Deployment ---")
+model.save("cnn_xray_model.keras")
+print("[SUCCESS] Model saved as cnn_xray_model.keras")

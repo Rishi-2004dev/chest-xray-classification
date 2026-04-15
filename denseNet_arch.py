@@ -1,3 +1,5 @@
+#this code is correct but this model is not efficient for my smaller dataset as my simple 3 block model is giving more accuracy then densnet121.
+#so iam not going to use this model for my project but anyone else who are interested can use this and can work upon this.
 # ============================================================
 # IMPORTS
 # ============================================================
@@ -12,15 +14,14 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.applications import DenseNet121
 
 # ============================================================
 # DATASET CONFIGURATION
 # ============================================================
 # Base directory of dataset
 base_dir = Path(
-    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/"
-    "python_ptojects/playing with deep learning and new new datasets /"
-    "combined-unknown-pneumonia-and-tuberculosis"
+    "/data/rishi and dev/rishi's coding stuff/coding stuff/python/python_ptojects/playing with deep learning and new datasets /combined-unknown-pneumonia-and-tuberculosis"
 )
 
 # Folder structure
@@ -65,10 +66,6 @@ for split in dir_type:
 print("trian size:", len(train_paths))
 print("test_size:", len(test_paths))
 print("Val size  :", len(val_paths))
-#pairs = list(zip(train_paths, train_labels))
-#sample = random.sample(pairs, 10)
-#for path, label in sample:
-#    print(f"path is: {path} and label is {label}")
 
 # ============================================================
 # LABEL ENCODING
@@ -213,8 +210,18 @@ val_dataset   = val_dataset.prefetch(tf.data.AUTOTUNE)
 #    print("Label batch:", label)
 
 # ============================================================
-# STEP 4: BUILD ROBUST BASELINE CNN MODEL
+# STEP 4: BUILD DENSENET121 TRANSFER LEARNING MODEL
 # ============================================================
+
+# 1. Load the pre-trained DenseNet base
+base_model = DenseNet121(
+    weights='imagenet', 
+    include_top=False, 
+    input_shape=(224, 224, 3)
+)
+print(len(base_model.layers))
+#Freeze the base model
+base_model.trainable=False
 
 # 1. Aggressive Data Augmentation to destroy the JPEG/PNG Shortcut
 data_augmentation = keras.Sequential([
@@ -227,29 +234,19 @@ data_augmentation = keras.Sequential([
 
 # 2. Model Architecture
 inputs = layers.Input(shape=(224, 224, 3))
-
-# Augmentation ONLY runs during training
 x = data_augmentation(inputs)
+x = base_model(x, training=False)
 
-# Block 1
-x = layers.Conv2D(32, (3,3), activation='relu')(x)
-x = layers.MaxPooling2D()(x)
-
-# Block 2
-x = layers.Conv2D(64, (3,3), activation='relu')(x)
-x = layers.MaxPooling2D()(x)
-
-# Block 3
-x = layers.Conv2D(128, (3,3), activation='relu')(x)
-x = layers.MaxPooling2D()(x)
-
-# Head (Fixed: Replaced Flatten with GlobalAveragePooling2D)
+# custom classification Head 
 x = layers.GlobalAveragePooling2D()(x)
 x = layers.Dense(128, activation='relu')(x)
+x = layers.Dropout(0.5)(x) # Added to prevent the new dense layer from overfitting
 outputs = layers.Dense(3, activation='softmax')(x)
 
 model = keras.Model(inputs, outputs)
 
+print("\n--- Model Summary ---")
+model.summary()
 # ============================================================
 # COMPILE AND TRAIN MODEL
 # ============================================================
@@ -263,7 +260,7 @@ model.compile(
 # 3. Early Stopping to prevent the Epoch 5-10 memory burn
 early_stopping = keras.callbacks.EarlyStopping(
     monitor='val_loss',
-    patience=4,
+    patience=5,
     restore_best_weights=True
 )
 
@@ -275,10 +272,11 @@ class_weights = {
     2: 1.107   # TUBERCULOSIS
 }
 
+print("\n--- Training DenseNet121 Transfer Learning Model ---")
 history = model.fit(
     train_dataset,
     validation_data=val_dataset,
-    epochs=20, 
+    epochs=15, 
     callbacks=[early_stopping],
     class_weight=class_weights
 )
@@ -286,7 +284,60 @@ history = model.fit(
 # ============================================================
 # STEP 5: EVALUATE BASELINE ON TEST SET
 # ============================================================
-print("\n--- Evaluating Baseline on Test Data ---")
-test_loss, test_acc = model.evaluate(test_dataset)
-print(f"Final Test Accuracy: {test_acc:.4f}")
-print(f"Final Test Loss: {test_loss:.4f}")
+#print("\n--- Evaluating Baseline on Test Data ---")
+#test_loss, test_acc = model.evaluate(test_dataset)
+#print(f"Final Test Accuracy: {test_acc:.4f}")
+#print(f"Final Test Loss: {test_loss:.4f}")
+
+# ============================================================
+# STEP 6: FINE-TUNING (THE THAW)
+# ============================================================
+print("\n" + "="*50)
+print("PHASE 2: FINE-TUNING THE TOP LAYERS OF DENSENET")
+print("="*50 + "\n")
+
+# 1. Unfreeze the entire base model
+base_model.trainable = True
+
+# 2. Re-freeze the bottom layers, leave only the top block thawed
+# DenseNet121 has 427 layers. We will unfreeze the last 30 layers.
+for layer in base_model.layers[:-10]:
+    layer.trainable = False
+
+print(f"Total layers in base model: {len(base_model.layers)}")
+print("Layers unfrozen for fine-tuning: 10")
+
+# 3. RECOMPILE the model with a MICROSCOPIC learning rate
+# This is critical. If you use 0.001 here, you destroy the model.
+model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=1e-5), # 0.00001
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 4. CREATE A NEW EARLY STOPPING CALLBACK FOR PHASE 2
+# This resets the memory so it doesn't instantly kill the fine-tuning
+fine_tune_early_stopping = keras.callbacks.EarlyStopping(
+    monitor='val_loss',
+    patience=5,
+    restore_best_weights=True
+)
+# 5. Train the model again (it will resume from where it left off)
+fine_tune_epochs = 40 
+total_epochs = 15 + fine_tune_epochs # 15 from previous run + 10 new ones
+
+history_fine = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=total_epochs,
+    initial_epoch=len(history.epoch), # Start from the exact epoch where it stopped
+    callbacks=[fine_tune_early_stopping], # Keep early stopping active
+    class_weight=class_weights
+)
+# ============================================================
+# STEP 7: FINAL EVALUATION AFTER FINE-TUNING
+# ============================================================
+print("\n--- Evaluating Fine-Tuned Model on Test Data ---")
+final_test_loss, final_test_acc = model.evaluate(test_dataset)
+print(f"ULTIMATE Test Accuracy: {final_test_acc:.4f}")
+print(f"ULTIMATE Test Loss: {final_test_loss:.4f}")
