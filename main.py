@@ -25,7 +25,7 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png"}
 # WARNING: Medically Unsafe Heuristic.
 # If True, rejects images with high color variance (e.g., leaves, natural photos).
 # Kept False by default because valid X-rays often contain colored text markers from hospital PACS systems.
-STRICT_OOD_REJECTION = True  
+STRICT_OOD_REJECTION = False
 
 # Configure standard Python logging for production visibility
 logging.basicConfig(
