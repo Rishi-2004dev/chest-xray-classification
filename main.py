@@ -221,6 +221,10 @@ async def predict_xray(file: UploadFile = File(...)):
         "confidence": result["confidence"]
     }
 
+@app.get("/healthz")
+async def health_check():
+    return {"status": "healthy"}
+
 if __name__ == "__main__":
     import uvicorn
     # Execute via: python main.py
