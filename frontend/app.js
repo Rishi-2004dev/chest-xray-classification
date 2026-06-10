@@ -13,7 +13,7 @@
   'use strict';
 
   // ── Configuration ──────────────────────────────────────────
-  const API_URL = 'http://127.0.0.1:8000/predict';
+  const API_URL = 'https://chest-xray-classification-u1vp.onrender.com/predict';
   const MAX_FILE_SIZE_MB = 20;
   const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
